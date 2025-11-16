@@ -1,11 +1,16 @@
+ 
 const express = require("express");
+const dotenv = require("dotenv");
+dotenv.config();
+const bcrypt = require("bcrypt");
 const JWT_SECRET = "78e8u9e";
 const { UserModel, todoModel } = require("./db");
 const mongoose = require("mongoose");
 const app = express();
 const jwt = require("jsonwebtoken");
 
-mongoose.connect("mongodb+srv://sakshiP:12345@zerodhacluster.nkmwj.mongodb.net/databasecheck")
+
+mongoose.connect(process.env.MONGO_URL)
 .then(() =>
   console.log("Db Connected")
 )
@@ -16,6 +21,7 @@ app.post('/signup', async function(req,res) {
   const name = req.body.name;
   const email = req.body.email;
   const password = req.body.password;
+  const hashedPassword = await bcrypt.hash(password,5);
 
   const userExist = await UserModel.findOne({
     name : name,
@@ -27,7 +33,7 @@ app.post('/signup', async function(req,res) {
          await UserModel.create({
           name : name,
           email: email,
-          password : password
+          password : hashedPassword 
          })
          res.json({
           "message" : "User sign in"
@@ -46,12 +52,19 @@ app.post('/signIn', async function(req,res){
   const email = req.body.email;
   const password = req.body.password;
 
+
    const userExist = await UserModel.findOne({
     name : name,
     email: email
   })
 
-   if(userExist)
+  if (!userExist) {
+  return res.status(401).json({ message: "Invalid credentials" });
+}
+
+  const decodedPassword = await bcrypt.compare(password,userExist.password);
+
+   if(decodedPassword)
    {
        const token = jwt.sign({ name }, JWT_SECRET);
        res.json({"token " : token })
